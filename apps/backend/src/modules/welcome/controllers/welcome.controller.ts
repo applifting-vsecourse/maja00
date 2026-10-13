@@ -1,6 +1,6 @@
 import { Config } from '@/shared/config/config.service';
 import { Controller, Get, UsePipes, ValidationPipe } from '@nestjs/common';
-import { ApiOperation } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { WelcomeDto } from './dto/welcome.dto';
 
 @Controller()
@@ -19,6 +19,11 @@ export class WelcomeController {
     description:
       'Welcome message including name, description, version and useful links',
   })
+  // Declared explicitly so the @nestjs/swagger CLI plugin doesn't infer it.
+  // When it infers a response type it emits require("<path>") for the DTO,
+  // and on Windows that path came out absolute and pointing into src/, which
+  // crashed the compiled app on startup with MODULE_NOT_FOUND.
+  @ApiResponse({ status: 200, type: WelcomeDto })
   async getWelcomeMessage(): Promise<WelcomeDto> {
     return {
       message: `Welcome to ${this.config.name}`,
