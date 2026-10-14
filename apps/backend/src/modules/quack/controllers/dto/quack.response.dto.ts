@@ -1,4 +1,4 @@
-import { QUACK_MOODS, Quack, QuackMood } from '@/modules/quack/domain/quack';
+import { Quack, QUACK_MOODS, QuackMood } from '@/modules/quack/domain/quack';
 import { ApiProperty } from '@nestjs/swagger';
 
 class QuackUserDto {
