@@ -9,6 +9,7 @@ import { HeaderMenu } from "@/features/auth/components/HeaderMenu"
 import { useSession } from "@/features/auth/hooks/useSession"
 import type { Quack } from "@/features/quack/api/quackSchemas"
 import { QuackItem } from "@/features/quack/components/QuackItem"
+import { QuackSearch } from "@/features/quack/components/QuackSearch"
 
 export const Route = createFileRoute("/")({
   component: LandingPage,
@@ -41,7 +42,11 @@ function LandingPage() {
   return (
     <>
       <Seo title="Welcome" />
-      <Header userMenu={<HeaderMenu />} />
+      <Header
+        userMenu={<HeaderMenu />}
+        // Posts are only readable when signed in, so only then is there anything to search.
+        search={user ? <QuackSearch /> : null}
+      />
       <main className="min-h-svh">
         <section className="mx-auto w-full max-w-2xl px-4 pt-16 pb-12 text-center">
           <h1 className="text-4xl font-bold tracking-tight text-balance sm:text-5xl">
