@@ -4,6 +4,7 @@ import { formatDate } from "@/lib/date"
 
 import type { Quack } from "@/features/quack/api/quackSchemas"
 import { Highlighted } from "@/features/quack/components/Highlighted"
+import { QuackPoll } from "@/features/quack/components/QuackPoll"
 import { UsersName } from "@/features/quack/components/UsersName"
 import { UsersUserName } from "@/features/quack/components/UsersUserName"
 
@@ -59,6 +60,12 @@ export function QuackItem({ quack, highlight = [] }: QuackItemProps) {
             words={highlight}
           />
         </p>
+        {quack.poll ? (
+          <QuackPoll
+            quackId={quack.id}
+            poll={quack.poll}
+          />
+        ) : null}
       </div>
     </article>
   )

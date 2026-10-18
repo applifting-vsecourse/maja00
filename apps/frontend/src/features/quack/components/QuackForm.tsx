@@ -1,7 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Loader2 } from "lucide-react"
 import { useForm, useWatch } from "react-hook-form"
-import { z } from "zod"
 
 import { MoodSelect } from "@/components/MoodSelect"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -15,25 +14,17 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Textarea } from "@/components/ui/textarea"
-import { NO_MOOD, quackMoodSchema, type QuackMood } from "@/lib/quack-moods"
+import { NO_MOOD, type QuackMood } from "@/lib/quack-moods"
 import { cn } from "@/lib/utils"
 
+import { PollFields } from "@/features/quack/components/PollFields"
+import {
+  MAX_LENGTH,
+  quackFormSchema,
+  type QuackFormValues,
+} from "@/features/quack/components/quackFormSchema"
 import { useAddQuack } from "@/features/quack/hooks/useAddQuack"
-
-// Mirrors the server-side DTO (MaxLength(280)) so the user is told before
-// the request is made — the server still validates independently.
-const MAX_LENGTH = 280
-
-const schema = z.object({
-  text: z
-    .string()
-    .trim()
-    .min(1, "Write something first")
-    .max(MAX_LENGTH, `Keep it under ${MAX_LENGTH} characters`),
-  mood: z.union([quackMoodSchema, z.literal(NO_MOOD)]),
-})
-
-type FormValues = z.infer<typeof schema>
+import { POLL_DEFAULT_DURATION_DAYS, totalMinutes } from "@/features/quack/lib/poll"
 
 type QuackFormProps = {
   className?: string
@@ -45,18 +36,46 @@ type QuackFormProps = {
 export function QuackForm({ className, defaultMood }: QuackFormProps) {
   const startMood = defaultMood ?? NO_MOOD
   const addQuack = useAddQuack()
-  const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
+  const form = useForm<QuackFormValues>({
+    resolver: zodResolver(quackFormSchema),
     defaultValues: { text: "", mood: startMood },
   })
 
   const text = useWatch({ control: form.control, name: "text" })
   const length = text?.length ?? 0
+  const hasPoll = useWatch({ control: form.control, name: "poll" }) !== undefined
 
-  const handleSubmit = (values: FormValues) => {
+  const togglePoll = () => {
+    if (hasPoll) {
+      form.setValue("poll", undefined)
+      form.clearErrors("poll")
+    } else {
+      form.setValue("poll", {
+        options: [{ text: "" }, { text: "" }],
+        durationDays: String(POLL_DEFAULT_DURATION_DAYS),
+        durationHours: "0",
+        durationMinutes: "0",
+      })
+    }
+  }
+
+  const handleSubmit = (values: QuackFormValues) => {
     addQuack.mutate(
-      { text: values.text, mood: values.mood === NO_MOOD ? undefined : values.mood },
-      { onSuccess: () => form.reset({ text: "", mood: startMood }) },
+      {
+        text: values.text,
+        mood: values.mood === NO_MOOD ? undefined : values.mood,
+        poll: values.poll
+          ? {
+              options: values.poll.options.map((option) => option.text),
+              durationMinutes: totalMinutes(
+                values.poll.durationDays,
+                values.poll.durationHours,
+                values.poll.durationMinutes,
+              ),
+            }
+          : undefined,
+      },
+      { onSuccess: () => form.reset({ text: "", mood: startMood, poll: undefined }) },
     )
   }
 
@@ -110,7 +129,19 @@ export function QuackForm({ className, defaultMood }: QuackFormProps) {
           />
         </div>
 
+        {hasPoll ? <PollFields isDisabled={addQuack.isPending} /> : null}
+
         <div className="flex items-center justify-end gap-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="mr-auto"
+            disabled={addQuack.isPending}
+            onClick={togglePoll}
+          >
+            {hasPoll ? "Remove poll" : "Add poll"}
+          </Button>
           <span
             className={cn(
               "text-sm",

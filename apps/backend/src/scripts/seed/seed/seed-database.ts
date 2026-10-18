@@ -2,10 +2,12 @@ import { PrismaService } from '@/core/prisma/prisma.service';
 import { User } from '@/generated/prisma/client';
 import { BetterAuth } from '@/shared/auth/providers/better-auth.provider';
 import { Config } from '@/shared/config/config.service';
+import { createPoll } from './create-poll';
 import { createQuack } from './create-quack';
 import { createUser } from './create-user';
 
 const MINUTE_IN_MS = 60 * 1000;
+const HOUR_IN_MS = 60 * MINUTE_IN_MS;
 
 export const seedDatabase = async (
   prisma: PrismaService,
@@ -171,4 +173,38 @@ Please stop tagging me.`,
       createdAt: new Date(now - minutesAgo * MINUTE_IN_MS),
     });
   }
+
+  console.log('Creating example polls');
+
+  const openPollQuack = await createQuack(prisma, {
+    text: 'Where does the flock go for lunch?',
+    userId: pondAdmin.id,
+    createdAt: new Date(now - 10 * MINUTE_IN_MS),
+  });
+  await createPoll(prisma, {
+    quackId: openPollQuack.id,
+    options: ['The reeds', 'The bakery bins', 'The north end'],
+    closesAt: new Date(now + 20 * HOUR_IN_MS),
+    votes: [
+      { userId: caffeinatedDuck.id, optionIndex: 1 },
+      { userId: breadCritic.id, optionIndex: 1 },
+      { userId: migrationSeason.id, optionIndex: 0 },
+    ],
+  });
+
+  const closedPollQuack = await createQuack(prisma, {
+    text: 'Is the swan allowed on the west bank?',
+    userId: deepDuckThoughts.id,
+    createdAt: new Date(now - 3000 * MINUTE_IN_MS),
+  });
+  await createPoll(prisma, {
+    quackId: closedPollQuack.id,
+    options: ['Yes', 'No'],
+    closesAt: new Date(now - 2 * HOUR_IN_MS),
+    votes: [
+      { userId: caffeinatedDuck.id, optionIndex: 1 },
+      { userId: breadCritic.id, optionIndex: 1 },
+      { userId: pondAdmin.id, optionIndex: 0 },
+    ],
+  });
 };

@@ -1,3 +1,5 @@
+import { PollView } from '@/modules/quack/domain/poll';
+
 export type QuackAuthor = {
   id: string;
   name: string;
@@ -16,4 +18,6 @@ export type Quack = {
   createdAt: Date;
   updatedAt: Date;
   user?: QuackAuthor;
+  // Shaped for the viewer the quack was loaded for. `null`: no poll.
+  poll?: PollView | null;
 };

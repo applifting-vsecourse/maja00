@@ -37,11 +37,54 @@ model Quack {
   mood      QuackMood?
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String
+  poll      Poll?
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
   @@index([userId])
   @@map("quack")
+}
+
+model Poll {
+  id        String       @id @default(cuid())
+  quack     Quack        @relation(fields: [quackId], references: [id], onDelete: Cascade)
+  quackId   String       @unique
+  closesAt  DateTime
+  createdAt DateTime     @default(now())
+  options   PollOption[]
+  votes     PollVote[]
+
+  @@map("poll")
+}
+
+model PollOption {
+  id       String     @id @default(cuid())
+  poll     Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  pollId   String
+  text     String     @db.VarChar(50)
+  position Int
+  votes    PollVote[]
+
+  @@unique([pollId, position])
+  // Lets a vote prove its option belongs to the same poll as the vote.
+  @@unique([id, pollId])
+  @@map("poll_option")
+}
+
+model PollVote {
+  poll      Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  pollId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  option    PollOption @relation(fields: [optionId, pollId], references: [id, pollId], onDelete: Cascade)
+  optionId  String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @default(now()) @updatedAt
+
+  // One vote per user per poll, enforced by the database.
+  @@id([pollId, userId])
+  @@index([optionId])
+  @@map("poll_vote")
 }
 
 model Session {
@@ -103,6 +146,7 @@ model User {
   sessions        Session[]
   accounts        Account[]
   quacks          Quack[]
+  pollVotes       PollVote[]
   role            UserRole  @default(user)
   bio             String?   @db.VarChar(160)
   defaultMood     QuackMood?

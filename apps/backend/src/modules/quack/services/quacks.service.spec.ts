@@ -1,10 +1,16 @@
 // Example unit test — the pattern to copy for your own services.
 // The repository is mocked, so the test exercises the service in isolation.
+import { Poll } from '@/modules/quack/domain/poll';
 import { Quack } from '@/modules/quack/domain/quack';
 import { QuackRepository } from '@/modules/quack/repositories/quack.repository';
 import { Identity } from '@/shared/auth/domain/identity';
-import { Logger } from '@nestjs/common';
-import { mock } from 'jest-mock-extended';
+import {
+  ConflictException,
+  ForbiddenException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { mock, MockProxy } from 'jest-mock-extended';
 import { QuacksService } from './quacks.service';
 
 const aQuack = (overrides: Partial<Quack> = {}): Quack => ({
@@ -26,7 +32,7 @@ describe('QuacksService', () => {
 
     const service = new QuacksService(repository);
 
-    await expect(service.getQuacks()).resolves.toEqual(quacks);
+    await expect(service.getQuacks('u1')).resolves.toEqual(quacks);
     expect(repository.getQuacks).toHaveBeenCalledTimes(1);
   });
 
@@ -42,11 +48,10 @@ describe('QuacksService', () => {
       created,
     );
     // the author comes from the session, not from the caller's payload
-    expect(repository.createQuack).toHaveBeenCalledWith({
-      text: 'hello',
-      mood: null,
-      userId: 'u1',
-    });
+    expect(repository.createQuack).toHaveBeenCalledWith(
+      { text: 'hello', mood: null, userId: 'u1', poll: null },
+      expect.any(Date),
+    );
   });
 
   it('passes the chosen mood through to the repository', async () => {
@@ -60,11 +65,10 @@ describe('QuacksService', () => {
     await expect(
       service.createQuack(user, { text: 'lol', mood: 'silly' }),
     ).resolves.toEqual(created);
-    expect(repository.createQuack).toHaveBeenCalledWith({
-      text: 'lol',
-      mood: 'silly',
-      userId: 'u1',
-    });
+    expect(repository.createQuack).toHaveBeenCalledWith(
+      { text: 'lol', mood: 'silly', userId: 'u1', poll: null },
+      expect.any(Date),
+    );
   });
 
   describe('searching', () => {
@@ -77,8 +81,12 @@ describe('QuacksService', () => {
 
       const service = new QuacksService(repository);
 
-      await expect(service.getQuacks('duck')).resolves.toHaveLength(1);
-      expect(repository.getQuacks).toHaveBeenCalledWith('duck');
+      await expect(service.getQuacks('u1', 'duck')).resolves.toHaveLength(1);
+      expect(repository.getQuacks).toHaveBeenCalledWith(
+        'u1',
+        expect.any(Date),
+        'duck',
+      );
       log.mockRestore();
     });
 
@@ -89,7 +97,7 @@ describe('QuacksService', () => {
         .spyOn(Logger.prototype, 'log')
         .mockImplementation(() => undefined);
 
-      await new QuacksService(repository).getQuacks('secret pond');
+      await new QuacksService(repository).getQuacks('u1', 'secret pond');
 
       expect(log).toHaveBeenCalledTimes(1);
       const message = String(log.mock.calls[0][0]);
@@ -107,10 +115,108 @@ describe('QuacksService', () => {
         .spyOn(Logger.prototype, 'log')
         .mockImplementation(() => undefined);
 
-      await new QuacksService(repository).getQuacks();
+      await new QuacksService(repository).getQuacks('u1');
 
       expect(log).not.toHaveBeenCalled();
       log.mockRestore();
+    });
+  });
+
+  describe('creating a poll', () => {
+    it('closes the poll after the chosen number of minutes', async () => {
+      const repository = mock<QuackRepository>();
+      repository.createQuack.mockResolvedValue(aQuack());
+      const before = Date.now();
+
+      await new QuacksService(repository).createQuack(
+        { id: 'u1' } as Identity,
+        {
+          text: 'lunch?',
+          poll: { options: ['a', 'b'], durationMinutes: 90 },
+        },
+      );
+
+      const [data] = repository.createQuack.mock.calls[0];
+      expect(data.poll?.options).toEqual(['a', 'b']);
+      const closesIn = (data.poll?.closesAt.getTime() ?? 0) - before;
+      expect(closesIn).toBeGreaterThanOrEqual(90 * 60 * 1000);
+      expect(closesIn).toBeLessThan(90 * 60 * 1000 + 5000);
+    });
+  });
+
+  describe('voting', () => {
+    const open: Poll = {
+      id: 'p1',
+      quackId: 'q1',
+      closesAt: new Date(Date.now() + 60 * 60 * 1000),
+      options: [
+        { id: 'a', text: 'Pizza', position: 0 },
+        { id: 'b', text: 'Ramen', position: 1 },
+      ],
+    };
+    const voter = { id: 'voter' } as Identity;
+    const setup = (
+      poll: Poll = open,
+      authorId = 'author',
+    ): { repository: MockProxy<QuackRepository>; service: QuacksService } => {
+      const repository = mock<QuackRepository>();
+      repository.findPollByQuackId.mockResolvedValue({ poll, authorId });
+      repository.castVote.mockResolvedValue('voted');
+      return { repository, service: new QuacksService(repository) };
+    };
+
+    it('records the vote for the signed-in user', async () => {
+      const { repository, service } = setup();
+      await service.voteOnPoll(voter, 'q1', 'b');
+      expect(repository.castVote).toHaveBeenCalledWith(
+        { pollId: 'p1', userId: 'voter', optionId: 'b' },
+        expect.any(Date),
+      );
+      expect(repository.getPollView).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects the author', async () => {
+      const { repository, service } = setup(open, 'voter');
+      await expect(service.voteOnPoll(voter, 'q1', 'a')).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(repository.castVote).not.toHaveBeenCalled();
+    });
+
+    it('rejects a quack without a poll', async () => {
+      const repository = mock<QuackRepository>();
+      repository.findPollByQuackId.mockResolvedValue(null);
+      await expect(
+        new QuacksService(repository).voteOnPoll(voter, 'q1', 'a'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects an option from another poll', async () => {
+      const { repository, service } = setup();
+      await expect(
+        service.voteOnPoll(voter, 'q1', 'other-poll-option'),
+      ).rejects.toThrow(NotFoundException);
+      expect(repository.castVote).not.toHaveBeenCalled();
+    });
+
+    it('rejects a vote on a closed poll', async () => {
+      const { repository, service } = setup({
+        ...open,
+        closesAt: new Date(Date.now() - 1000),
+      });
+      await expect(service.voteOnPoll(voter, 'q1', 'a')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(repository.castVote).not.toHaveBeenCalled();
+    });
+
+    it('rejects a vote when the poll closed while the request ran', async () => {
+      const { repository, service } = setup();
+      repository.castVote.mockResolvedValue('closed');
+      await expect(service.voteOnPoll(voter, 'q1', 'a')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(repository.getPollView).not.toHaveBeenCalled();
     });
   });
 });
