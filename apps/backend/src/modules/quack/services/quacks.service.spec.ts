@@ -3,6 +3,7 @@
 import { Quack } from '@/modules/quack/domain/quack';
 import { QuackRepository } from '@/modules/quack/repositories/quack.repository';
 import { Identity } from '@/shared/auth/domain/identity';
+import { Logger } from '@nestjs/common';
 import { mock } from 'jest-mock-extended';
 import { QuacksService } from './quacks.service';
 
@@ -63,6 +64,53 @@ describe('QuacksService', () => {
       text: 'lol',
       mood: 'silly',
       userId: 'u1',
+    });
+  });
+
+  describe('searching', () => {
+    it('passes the search through to the repository', async () => {
+      const repository = mock<QuackRepository>();
+      repository.getQuacks.mockResolvedValue([aQuack()]);
+      const log = jest
+        .spyOn(Logger.prototype, 'log')
+        .mockImplementation(() => undefined);
+
+      const service = new QuacksService(repository);
+
+      await expect(service.getQuacks('duck')).resolves.toHaveLength(1);
+      expect(repository.getQuacks).toHaveBeenCalledWith('duck');
+      log.mockRestore();
+    });
+
+    it('logs the size of a search but never its words', async () => {
+      const repository = mock<QuackRepository>();
+      repository.getQuacks.mockResolvedValue([aQuack(), aQuack({ id: 'q2' })]);
+      const log = jest
+        .spyOn(Logger.prototype, 'log')
+        .mockImplementation(() => undefined);
+
+      await new QuacksService(repository).getQuacks('secret pond');
+
+      expect(log).toHaveBeenCalledTimes(1);
+      const message = String(log.mock.calls[0][0]);
+      expect(message).toContain('queryLength=11');
+      expect(message).toContain('words=2');
+      expect(message).toContain('results=2');
+      expect(message).not.toContain('secret');
+      log.mockRestore();
+    });
+
+    it('does not log when there is no search', async () => {
+      const repository = mock<QuackRepository>();
+      repository.getQuacks.mockResolvedValue([]);
+      const log = jest
+        .spyOn(Logger.prototype, 'log')
+        .mockImplementation(() => undefined);
+
+      await new QuacksService(repository).getQuacks();
+
+      expect(log).not.toHaveBeenCalled();
+      log.mockRestore();
     });
   });
 });
