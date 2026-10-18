@@ -21,7 +21,8 @@ const mapPrismaQuackToDomain = (
     ? {
         id: quack.user.id,
         name: quack.user.name,
-        username: quack.user.username ?? '',
+        // The spelling the user typed; `username` itself is stored lowercase.
+        username: quack.user.displayUsername ?? quack.user.username ?? '',
       }
     : undefined,
 });

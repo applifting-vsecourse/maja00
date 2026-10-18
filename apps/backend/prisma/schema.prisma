@@ -104,6 +104,8 @@ model User {
   accounts        Account[]
   quacks          Quack[]
   role            UserRole  @default(user)
+  bio             String?   @db.VarChar(160)
+  defaultMood     QuackMood?
 
   username        String? @db.VarChar(50)
   displayUsername String? @db.VarChar(50)
