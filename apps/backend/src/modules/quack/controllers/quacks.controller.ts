@@ -8,7 +8,9 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
+  Put,
   Query,
   UseGuards,
   UsePipes,
@@ -22,7 +24,9 @@ import {
 } from '@nestjs/swagger';
 import { CreateQuackDto } from './dto/create-quack.dto';
 import { ListQuacksQueryDto } from './dto/list-quacks-query.dto';
+import { PollResponseDto } from './dto/poll.response.dto';
 import { QuackResponseDto } from './dto/quack.response.dto';
+import { VoteDto } from './dto/vote.dto';
 
 @ApiTags('quacks')
 @Controller('quacks')
@@ -46,8 +50,11 @@ export class QuacksController {
   @ApiResponse({ status: 200, type: [QuackResponseDto] })
   @ApiResponse({ status: 400, description: 'Invalid search query' })
   @ApiResponse({ status: 401, description: 'Not signed in' })
-  async list(@Query() query: ListQuacksQueryDto): Promise<QuackResponseDto[]> {
-    const quacks = await this.quacksService.getQuacks(query.q);
+  async list(
+    @User() user: Identity,
+    @Query() query: ListQuacksQueryDto,
+  ): Promise<QuackResponseDto[]> {
+    const quacks = await this.quacksService.getQuacks(user.id, query.q);
     return quacks.map(QuackResponseDto.fromDomain);
   }
 
@@ -63,7 +70,36 @@ export class QuacksController {
     const quack = await this.quacksService.createQuack(user, {
       text: body.text,
       mood: body.mood,
+      poll: body.poll,
     });
     return QuackResponseDto.fromDomain(quack);
+  }
+
+  @Put(':quackId/poll/vote')
+  @ApiOperation({
+    summary: 'Vote in the poll of a quack, or move your vote',
+    description:
+      'Sets your vote to the given option. Safe to repeat. Returns the poll with counts visible.',
+  })
+  @ApiResponse({ status: 200, type: PollResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid body' })
+  @ApiResponse({ status: 401, description: 'Not signed in' })
+  @ApiResponse({ status: 403, description: 'You wrote this poll' })
+  @ApiResponse({
+    status: 404,
+    description: 'No such quack, no poll, or the option is not in the poll',
+  })
+  @ApiResponse({ status: 409, description: 'The poll is closed' })
+  async vote(
+    @User() user: Identity,
+    @Param('quackId') quackId: string,
+    @Body() body: VoteDto,
+  ): Promise<PollResponseDto> {
+    const poll = await this.quacksService.voteOnPoll(
+      user,
+      quackId,
+      body.optionId,
+    );
+    return PollResponseDto.fromDomain(poll);
   }
 }
