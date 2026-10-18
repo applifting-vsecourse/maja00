@@ -2,15 +2,10 @@ import { queryOptions } from "@tanstack/react-query"
 
 import { authKeys } from "@/lib/auth-keys"
 
+import { toSessionUser, type SessionUser } from "@/features/auth/api/sessionUser"
 import { authClient } from "@/features/auth/lib/auth-client"
 
-export type SessionUser = {
-  id: string
-  email: string
-  name: string
-  username: string
-  role?: string
-}
+export type { SessionUser }
 
 export type Session = {
   user: SessionUser
@@ -24,20 +19,7 @@ export const authSessionQueryOptions = () =>
       if (error) throw new Error(error.message ?? "Failed to load session")
       if (!data?.user) return null
 
-      const user = data.user as typeof data.user & {
-        username?: string | null
-        role?: string | null
-      }
-
-      return {
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          username: user.username ?? "",
-          role: user.role ?? undefined,
-        },
-      }
+      return { user: toSessionUser(data.user) }
     },
     staleTime: 30_000,
   })

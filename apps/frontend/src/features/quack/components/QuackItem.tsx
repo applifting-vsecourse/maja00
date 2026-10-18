@@ -1,9 +1,9 @@
+import { MoodLabel } from "@/components/MoodLabel"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { formatDate } from "@/lib/date"
 
 import type { Quack } from "@/features/quack/api/quackSchemas"
 import { Highlighted } from "@/features/quack/components/Highlighted"
-import { QuackMoodLabel } from "@/features/quack/components/QuackMoodLabel"
 import { UsersName } from "@/features/quack/components/UsersName"
 import { UsersUserName } from "@/features/quack/components/UsersUserName"
 
@@ -46,7 +46,7 @@ export function QuackItem({ quack, highlight = [] }: QuackItemProps) {
           {quack.mood ? (
             <>
               <span className="text-xs text-muted-foreground">·</span>
-              <QuackMoodLabel
+              <MoodLabel
                 mood={quack.mood}
                 className="text-xs text-muted-foreground"
               />

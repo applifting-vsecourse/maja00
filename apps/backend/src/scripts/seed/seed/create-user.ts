@@ -39,7 +39,10 @@ export async function createUser(
   await prisma.user.update({
     where: { id: user.id },
     data: {
-      username,
+      // Same shape the username plugin writes: lowercase `username` (unique
+      // regardless of case) and the typed spelling in `displayUsername`.
+      username: username.toLowerCase(),
+      displayUsername: username,
       role: role as UserRole,
     },
   });

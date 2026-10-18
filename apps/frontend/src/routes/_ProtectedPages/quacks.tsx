@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 
 import { Seo } from "@/components/Seo"
 
+import { useSession } from "@/features/auth/hooks/useSession"
 import { quacksSearchSchema } from "@/features/quack/api/quackSearch"
 import { quacksQueryOptions } from "@/features/quack/api/quacksQueryOptions"
 import { QuackForm } from "@/features/quack/components/QuackForm"
@@ -14,6 +15,7 @@ export const Route = createFileRoute("/_ProtectedPages/quacks")({
 })
 
 function QuacksPage() {
+  const { user } = useSession()
   const { q } = Route.useSearch()
   const navigate = Route.useNavigate()
   const quacksQuery = useQuery(quacksQueryOptions(q))
@@ -24,7 +26,10 @@ function QuacksPage() {
       <section className="mx-auto w-full max-w-2xl px-4 py-8">
         <h1 className="mb-4 text-2xl font-semibold tracking-tight">Quacks</h1>
 
-        <QuackForm className="mb-4" />
+        <QuackForm
+          className="mb-4"
+          defaultMood={user?.defaultMood}
+        />
 
         <QuackList
           quacks={quacksQuery.data ?? []}

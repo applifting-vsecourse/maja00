@@ -33,16 +33,6 @@ const createAuth = (
         await emailProvider.sendEmail(user.email, 'Password reset', html);
       },
     },
-    user: {
-      additionalFields: {
-        role: {
-          type: 'string',
-          required: true,
-          defaultValue: 'user',
-          input: false,
-        },
-      },
-    },
     trustedOrigins: [config.frontendUrl],
     emailVerification: {
       sendVerificationEmail: async ({ user, url }) => {

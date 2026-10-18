@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input"
 const schema = z
   .object({
     email: z.string().trim().min(1, "Email is required").email("Invalid email"),
-    name: z.string().trim().min(1, "Name is required"),
+    name: z.string().trim().min(1, "Name is required").max(50, "Keep it under 50 characters"),
     username: z.string().trim().min(1, "Username is required"),
     password: z.string().trim().min(8, "Password must be at least 8 characters"),
     passwordConfirmation: z.string().trim().min(1, "Password confirmation is required"),
