@@ -176,6 +176,59 @@ describe('QuacksService', () => {
       expect(repository.deleteQuack).not.toHaveBeenCalled();
     });
 
+    it("lets an admin delete someone else's quack and logs it", async () => {
+      const repository = mock<QuackRepository>();
+      repository.findQuackAuthorId.mockResolvedValue('u1');
+      const log = jest
+        .spyOn(Logger.prototype, 'log')
+        .mockImplementation(() => undefined);
+      const admin = { id: 'admin1', role: 'admin' } as Identity;
+
+      await new QuacksService(repository).deleteQuack(admin, 'q1');
+
+      expect(repository.deleteQuack).toHaveBeenCalledWith('q1');
+      expect(log).toHaveBeenCalledTimes(1);
+      const message = String(log.mock.calls[0][0]);
+      expect(message).toContain('admin1');
+      expect(message).toContain('q1');
+      expect(message).toContain('u1');
+      log.mockRestore();
+    });
+
+    it('does not log an ordinary delete by the author', async () => {
+      const repository = mock<QuackRepository>();
+      repository.findQuackAuthorId.mockResolvedValue('u1');
+      const log = jest
+        .spyOn(Logger.prototype, 'log')
+        .mockImplementation(() => undefined);
+
+      await new QuacksService(repository).deleteQuack(author, 'q1');
+
+      expect(log).not.toHaveBeenCalled();
+      log.mockRestore();
+    });
+
+    it('rejects a user whose role is not admin', async () => {
+      const repository = mock<QuackRepository>();
+      repository.findQuackAuthorId.mockResolvedValue('u1');
+      const regular = { id: 'u2', role: 'user' } as Identity;
+
+      await expect(
+        new QuacksService(repository).deleteQuack(regular, 'q1'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(repository.deleteQuack).not.toHaveBeenCalled();
+    });
+
+    it('still says NotFound to an admin when the quack does not exist', async () => {
+      const repository = mock<QuackRepository>();
+      repository.findQuackAuthorId.mockResolvedValue(null);
+      const admin = { id: 'admin1', role: 'admin' } as Identity;
+
+      await expect(
+        new QuacksService(repository).deleteQuack(admin, 'nope'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
     it('rejects a quack that does not exist with NotFound', async () => {
       const repository = mock<QuackRepository>();
       repository.findQuackAuthorId.mockResolvedValue(null);

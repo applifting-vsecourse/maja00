@@ -66,6 +66,7 @@ function QuacksPage() {
               onClearSearch={() => void navigate({ search: isMine ? { view } : {}, replace: true })}
               isStale={quacksQuery.isPlaceholderData}
               currentUserId={user?.id}
+              canModerate={user?.role === "admin"}
               isMine={isMine}
               onWriteFirst={focusNewQuack}
             />

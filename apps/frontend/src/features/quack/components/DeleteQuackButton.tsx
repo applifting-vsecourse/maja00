@@ -17,10 +17,12 @@ import { useDeleteQuack } from "@/features/quack/hooks/useDeleteQuack"
 
 type DeleteQuackButtonProps = {
   quackId: string
+  // A moderator deleting a quack someone else wrote.
+  isModeration?: boolean
 }
 
 // Hiding this button is a convenience. The server decides who may delete.
-export function DeleteQuackButton({ quackId }: DeleteQuackButtonProps) {
+export function DeleteQuackButton({ quackId, isModeration = false }: DeleteQuackButtonProps) {
   const [isOpen, setIsOpen] = useState(false)
   const deleteQuack = useDeleteQuack()
 
@@ -48,6 +50,9 @@ export function DeleteQuackButton({ quackId }: DeleteQuackButtonProps) {
         <DialogHeader>
           <DialogTitle>Delete this quack?</DialogTitle>
           <DialogDescription>
+            {isModeration
+              ? "You are deleting a quack written by someone else as a moderator. "
+              : null}
             It disappears from the feed for everyone. This can&apos;t be undone.
           </DialogDescription>
         </DialogHeader>

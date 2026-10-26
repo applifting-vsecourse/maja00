@@ -83,13 +83,16 @@ export class QuacksController {
   @Delete(':quackId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    summary: 'Delete one of your own quacks',
+    summary: 'Delete a quack (its author, or an admin)',
     description:
-      'Only the author may delete a quack. The author is checked against the session on every request.',
+      'Only the author or an admin may delete a quack. Both are checked against the session on every request.',
   })
   @ApiResponse({ status: 204, description: 'Deleted' })
   @ApiResponse({ status: 401, description: 'Not signed in' })
-  @ApiResponse({ status: 403, description: 'You did not write this quack' })
+  @ApiResponse({
+    status: 403,
+    description: 'You are neither the author nor an admin',
+  })
   @ApiResponse({ status: 404, description: 'No such quack' })
   async remove(
     @User() user: Identity,

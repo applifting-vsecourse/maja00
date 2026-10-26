@@ -22,7 +22,12 @@ test("author can post a quack and delete it", async ({ page }) => {
   await expect(quack).toBeVisible()
 
   await quack.getByRole("button", { name: "Delete quack" }).click()
-  await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click()
+  const dialog = page.getByRole("dialog")
+  await dialog.getByRole("button", { name: "Delete" }).click()
+  // The dialog only closes when the server accepted the delete. While it is
+  // open the rest of the page is hidden from getByRole, so "gone" would pass
+  // too early without this line.
+  await expect(dialog).toBeHidden()
   await expect(quack).toHaveCount(0)
 })
 
@@ -37,6 +42,27 @@ test("nobody can delete someone else's quack", async ({ page }) => {
   const notMine = await findQuackNotBy(page, "DeepDuckThoughts")
   const response = await page.request.delete(`${API}/quacks/${notMine.id}`)
   expect(response.status()).toBe(403)
+})
+
+test("admin can delete someone else's quack", async ({ browser }) => {
+  const text = `Spam ${Date.now()}`
+  const author = await browser.newPage()
+  await signIn(author, "caffeinatedduck@example.com", "password1")
+  const created = await author.request.post(`${API}/quacks`, { data: { text } })
+  expect(created.status()).toBe(201)
+
+  const admin = await browser.newPage()
+  await signIn(admin, "admin@example.com", "adminpassword")
+  await admin.goto("/quacks")
+
+  const quack = admin.getByRole("article").filter({ hasText: text })
+  await expect(quack).toBeVisible()
+  await quack.getByRole("button", { name: "Delete quack" }).click()
+  const dialog = admin.getByRole("dialog")
+  await expect(dialog).toContainText("as a moderator")
+  await dialog.getByRole("button", { name: "Delete" }).click()
+  await expect(dialog).toBeHidden()
+  await expect(quack).toHaveCount(0)
 })
 
 test("Mine shows only my quacks", async ({ page }) => {
