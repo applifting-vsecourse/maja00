@@ -21,6 +21,8 @@ type QuackListProps = {
   isStale?: boolean
   // The signed-in user. Their own quacks get a Delete action.
   currentUserId?: string
+  // The signed-in user is a moderator: every quack gets a Delete action.
+  canModerate?: boolean
   // Showing only the signed-in user's quacks (the Mine tab).
   isMine?: boolean
   // Empty Mine tab: takes the user to the place where they can post.
@@ -36,6 +38,7 @@ export function QuackList({
   onClearSearch,
   isStale,
   currentUserId,
+  canModerate = false,
   isMine,
   onWriteFirst,
 }: QuackListProps) {
@@ -126,14 +129,18 @@ export function QuackList({
       ) : null}
 
       <div className={cn(isStale && "opacity-60 transition-opacity")}>
-        {quacks.map((quack) => (
-          <QuackItem
-            key={quack.id}
-            quack={quack}
-            highlight={words}
-            canDelete={currentUserId !== undefined && quack.userId === currentUserId}
-          />
-        ))}
+        {quacks.map((quack) => {
+          const isOwn = currentUserId !== undefined && quack.userId === currentUserId
+          return (
+            <QuackItem
+              key={quack.id}
+              quack={quack}
+              highlight={words}
+              canDelete={isOwn || canModerate}
+              isModeration={!isOwn}
+            />
+          )
+        })}
       </div>
     </div>
   )

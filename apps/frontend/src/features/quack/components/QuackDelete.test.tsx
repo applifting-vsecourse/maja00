@@ -45,6 +45,48 @@ describe("Deleting a quack", () => {
     expect(screen.getAllByRole("button", { name: "Delete quack" })).toHaveLength(1)
   })
 
+  it("offers a moderator Delete on every quack", () => {
+    renderList(
+      <QuackList
+        currentUserId="admin"
+        canModerate
+        quacks={[quack(), quack({ id: "q2", text: "other", userId: "other" })]}
+      />,
+    )
+
+    expect(screen.getAllByRole("button", { name: "Delete quack" })).toHaveLength(2)
+  })
+
+  it("tells a moderator they are deleting someone else's quack", async () => {
+    renderList(
+      <QuackList
+        currentUserId="admin"
+        canModerate
+        quacks={[quack({ userId: "other" })]}
+      />,
+    )
+
+    await userEvent.click(screen.getByRole("button", { name: "Delete quack" }))
+
+    expect(screen.getByRole("dialog")).toHaveTextContent(
+      "You are deleting a quack written by someone else as a moderator.",
+    )
+  })
+
+  it("uses the normal dialog when a moderator deletes their own quack", async () => {
+    renderList(
+      <QuackList
+        currentUserId="me"
+        canModerate
+        quacks={[quack()]}
+      />,
+    )
+
+    await userEvent.click(screen.getByRole("button", { name: "Delete quack" }))
+
+    expect(screen.getByRole("dialog")).not.toHaveTextContent(/as a moderator/)
+  })
+
   it("offers no Delete while the signed-in user is unknown", () => {
     renderList(<QuackList quacks={[quack()]} />)
 

@@ -70,11 +70,19 @@ export class QuacksService {
     if (authorId === null) {
       throw new NotFoundException('This quack does not exist');
     }
-    // ownership is checked on the server, on every request
-    if (authorId !== user.id) {
+    // the owner or an admin may delete; checked on the server, on every request
+    const isOwner = authorId === user.id;
+    const isAdmin = user.role === 'admin';
+    if (!isOwner && !isAdmin) {
       throw new ForbiddenException('You can only delete your own quacks');
     }
     await this.quackRepository.deleteQuack(quackId);
+    if (!isOwner) {
+      // Ids only: who moderated what, without any personal data.
+      this.logger.log(
+        `Moderation: admin ${user.id} deleted quack ${quackId} written by ${authorId}`,
+      );
+    }
   }
 
   async voteOnPoll(

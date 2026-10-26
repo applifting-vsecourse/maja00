@@ -15,9 +15,16 @@ type QuackItemProps = {
   highlight?: string[]
   // Whether to offer the Delete action. A convenience only: the server checks too.
   canDelete?: boolean
+  // The Delete action is a moderator's, not the author's.
+  isModeration?: boolean
 }
 
-export function QuackItem({ quack, highlight = [], canDelete = false }: QuackItemProps) {
+export function QuackItem({
+  quack,
+  highlight = [],
+  canDelete = false,
+  isModeration = false,
+}: QuackItemProps) {
   const { name, username } = quack.user
 
   const initials = name
@@ -56,7 +63,12 @@ export function QuackItem({ quack, highlight = [], canDelete = false }: QuackIte
               />
             </>
           ) : null}
-          {canDelete ? <DeleteQuackButton quackId={quack.id} /> : null}
+          {canDelete ? (
+            <DeleteQuackButton
+              quackId={quack.id}
+              isModeration={isModeration}
+            />
+          ) : null}
         </div>
         <p className="text-sm break-words whitespace-pre-line">
           <Highlighted
