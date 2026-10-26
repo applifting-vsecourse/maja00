@@ -26,6 +26,16 @@ Need a control that isn't in `src/components/ui/`? Add it with `pnpm dlx shadcn@
 
 The CLI puts `shadow-xs`/`shadow-sm` on inputs, textareas and cards. [`DESIGN.md`](DESIGN.md) keeps shadows for things that genuinely float — dialogs, dropdowns, toasts. Strip them.
 
+Always read the diff after running the CLI. It once added a stray `cn` package to `package.json`/`pnpm-lock.yaml` and made the new component import `cn` from it. Type-check passed because the package exists. Revert the `package.json` and lockfile changes and import `cn` from `@/lib/utils` like every other file in `src/components/ui/`. Primary-coloured fills (e.g. `bg-primary` on a progress bar) also need restyling to neutral tokens, since `primary` is for actions.
+
+### Permissions are checked on the server
+
+Every endpoint that changes or deletes data checks, in the service, that the signed-in user may do it, and throws `ForbiddenException` (403) otherwise. The current user always comes from the session (`@User()`), never from the request body, the URL or a query parameter. Hiding a button in the UI is convenience, not protection: assume someone will call the API directly.
+
+### New roles
+
+Add the role to the `UserRole` enum and extend the single check in the service. Don't add role checks in React or controllers as the only protection.
+
 ### The app is already running
 
 Assume the dev servers are up. If something is listening on the app's ports, that is this application: use it. Don't start a second instance, don't restart it, don't run `pnpm dev`.
