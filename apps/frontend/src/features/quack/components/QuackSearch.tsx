@@ -54,13 +54,19 @@ export function QuackSearch() {
       const query = toSearchQuery(value)
       const { pathname, search } = router.state.location
       const isOnFeed = pathname === ROUTES.quacks
-      const current = isOnFeed ? quacksSearchSchema.parse(search).q : undefined
+      const parsed = isOnFeed ? quacksSearchSchema.parse(search) : undefined
+      const current = parsed?.q
 
       if (query === current) return
       // Nothing to clear when we are not on the feed — don't pull people there.
       if (!isOnFeed && !query) return
       // `replace`: back leaves the search instead of stepping through 'd', 'du', 'duc'...
-      void navigate({ to: ROUTES.quacks, search: query ? { q: query } : {}, replace: true })
+      // The All/Mine tab stays as it was.
+      void navigate({
+        to: ROUTES.quacks,
+        search: { ...(query ? { q: query } : {}), ...(parsed?.view ? { view: parsed.view } : {}) },
+        replace: true,
+      })
     },
     [router, navigate],
   )

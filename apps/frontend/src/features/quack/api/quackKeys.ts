@@ -1,6 +1,7 @@
 export const quackKeys = {
   all: () => ["quacks"] as const,
   lists: () => [...quackKeys.all(), "list"] as const,
-  // One cache entry per search, so going back to an earlier search is instant.
-  list: (q: string | undefined) => [...quackKeys.lists(), { q: q ?? "" }] as const,
+  // One cache entry per search and per All/Mine view, so going back is instant.
+  list: (q: string | undefined, isMine = false) =>
+    [...quackKeys.lists(), { q: q ?? "", mine: isMine }] as const,
 }

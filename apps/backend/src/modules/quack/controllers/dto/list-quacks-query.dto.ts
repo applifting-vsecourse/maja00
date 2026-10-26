@@ -4,7 +4,13 @@ import {
 } from '@/modules/quack/domain/quack-search';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class ListQuacksQueryDto {
   @ApiPropertyOptional({
@@ -25,4 +31,19 @@ export class ListQuacksQueryDto {
   @MinLength(SEARCH_MIN_LENGTH)
   @MaxLength(SEARCH_MAX_LENGTH)
   q?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Only return quacks written by the signed-in user. Who "me" is comes from the session, not from the request.',
+    example: true,
+  })
+  // Query strings are text: only the exact words "true" and "false" count.
+  @Transform(({ value }: { value: unknown }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
+  @IsOptional()
+  @IsBoolean()
+  mine?: boolean;
 }

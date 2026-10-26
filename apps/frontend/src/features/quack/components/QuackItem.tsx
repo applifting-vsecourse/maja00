@@ -3,6 +3,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { formatDate } from "@/lib/date"
 
 import type { Quack } from "@/features/quack/api/quackSchemas"
+import { DeleteQuackButton } from "@/features/quack/components/DeleteQuackButton"
 import { Highlighted } from "@/features/quack/components/Highlighted"
 import { QuackPoll } from "@/features/quack/components/QuackPoll"
 import { UsersName } from "@/features/quack/components/UsersName"
@@ -12,9 +13,11 @@ type QuackItemProps = {
   quack: Quack
   // Words of the active search, highlighted wherever they match.
   highlight?: string[]
+  // Whether to offer the Delete action. A convenience only: the server checks too.
+  canDelete?: boolean
 }
 
-export function QuackItem({ quack, highlight = [] }: QuackItemProps) {
+export function QuackItem({ quack, highlight = [], canDelete = false }: QuackItemProps) {
   const { name, username } = quack.user
 
   const initials = name
@@ -53,6 +56,7 @@ export function QuackItem({ quack, highlight = [] }: QuackItemProps) {
               />
             </>
           ) : null}
+          {canDelete ? <DeleteQuackButton quackId={quack.id} /> : null}
         </div>
         <p className="text-sm break-words whitespace-pre-line">
           <Highlighted
