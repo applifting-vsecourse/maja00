@@ -19,6 +19,12 @@ type QuackListProps = {
   onClearSearch?: () => void
   // The quacks shown belong to an earlier search; the new ones are loading.
   isStale?: boolean
+  // The signed-in user. Their own quacks get a Delete action.
+  currentUserId?: string
+  // Showing only the signed-in user's quacks (the Mine tab).
+  isMine?: boolean
+  // Empty Mine tab: takes the user to the place where they can post.
+  onWriteFirst?: () => void
 }
 
 export function QuackList({
@@ -29,6 +35,9 @@ export function QuackList({
   search,
   onClearSearch,
   isStale,
+  currentUserId,
+  isMine,
+  onWriteFirst,
 }: QuackListProps) {
   const words = toSearchWords(search)
   const isBusy = (isStale ?? false) || (isLoading ?? false)
@@ -96,6 +105,19 @@ export function QuackList({
               </Button>
             ) : null}
           </div>
+        ) : isMine ? (
+          <div className="flex flex-col items-center gap-3 py-8 text-center">
+            <p className="text-sm text-muted-foreground">You haven&apos;t posted any quacks yet.</p>
+            {onWriteFirst ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onWriteFirst}
+              >
+                Write your first quack
+              </Button>
+            ) : null}
+          </div>
         ) : (
           <p className="py-8 text-center text-sm text-muted-foreground">
             No quacks yet. Post the first one.
@@ -109,6 +131,7 @@ export function QuackList({
             key={quack.id}
             quack={quack}
             highlight={words}
+            canDelete={currentUserId !== undefined && quack.userId === currentUserId}
           />
         ))}
       </div>

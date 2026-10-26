@@ -5,6 +5,7 @@ import { AuthenticatedUserGuard } from '@/shared/auth/guards/authenticated-user.
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -54,7 +55,11 @@ export class QuacksController {
     @User() user: Identity,
     @Query() query: ListQuacksQueryDto,
   ): Promise<QuackResponseDto[]> {
-    const quacks = await this.quacksService.getQuacks(user.id, query.q);
+    const quacks = await this.quacksService.getQuacks(
+      user.id,
+      query.q,
+      query.mine,
+    );
     return quacks.map(QuackResponseDto.fromDomain);
   }
 
@@ -73,6 +78,24 @@ export class QuacksController {
       poll: body.poll,
     });
     return QuackResponseDto.fromDomain(quack);
+  }
+
+  @Delete(':quackId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Delete one of your own quacks',
+    description:
+      'Only the author may delete a quack. The author is checked against the session on every request.',
+  })
+  @ApiResponse({ status: 204, description: 'Deleted' })
+  @ApiResponse({ status: 401, description: 'Not signed in' })
+  @ApiResponse({ status: 403, description: 'You did not write this quack' })
+  @ApiResponse({ status: 404, description: 'No such quack' })
+  async remove(
+    @User() user: Identity,
+    @Param('quackId') quackId: string,
+  ): Promise<void> {
+    await this.quacksService.deleteQuack(user, quackId);
   }
 
   @Put(':quackId/poll/vote')

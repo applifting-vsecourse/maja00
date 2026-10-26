@@ -16,6 +16,9 @@ export const quacksSearchSchema = z.object({
     .max(SEARCH_MAX_LENGTH)
     .optional()
     .catch(undefined),
+  // `?view=mine` limits the feed to the signed-in user's quacks; anything else
+  // (or nothing) is the full feed.
+  view: z.literal("mine").optional().catch(undefined),
 })
 
 /** What the user typed, as a query to run — or undefined while it is too short. */

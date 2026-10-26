@@ -57,10 +57,14 @@ export class QuackRepository {
     viewerId: string,
     now: Date,
     search?: string,
+    authorId?: string,
   ): Promise<Quack[]> {
     const words = search ? toSearchWords(search) : [];
     const quacks = await this.prisma.quack.findMany({
-      where: words.length > 0 ? { id: { in: await this.findIds(words) } } : {},
+      where: {
+        ...(authorId ? { userId: authorId } : {}),
+        ...(words.length > 0 ? { id: { in: await this.findIds(words) } } : {}),
+      },
       include: { user: true, poll: { include: { options: true } } },
       orderBy: { createdAt: 'desc' },
     });
@@ -149,6 +153,20 @@ export class QuackRepository {
         })
       : null;
     return mapPrismaQuackToDomain(quack, view);
+  }
+
+  /** The id of the user who wrote the quack, or null if there is no such quack. */
+  async findQuackAuthorId(quackId: string): Promise<string | null> {
+    const quack = await this.prisma.quack.findUnique({
+      where: { id: quackId },
+      select: { userId: true },
+    });
+    return quack?.userId ?? null;
+  }
+
+  /** Deletes the quack; its poll and votes go with it (cascade in the schema). */
+  async deleteQuack(quackId: string): Promise<void> {
+    await this.prisma.quack.deleteMany({ where: { id: quackId } });
   }
 
   /** The poll of a quack and the quack's author, or null if there is none. */

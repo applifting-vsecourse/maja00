@@ -41,4 +41,14 @@ describe('ListQuacksQueryDto', () => {
     const { errors } = await check({ q: ['duck', 'pond'] });
     expect(errors).toHaveLength(1);
   });
+
+  it('reads mine=true and mine=false', async () => {
+    expect((await check({ mine: 'true' })).dto.mine).toBe(true);
+    expect((await check({ mine: 'false' })).dto.mine).toBe(false);
+    expect((await check({})).dto.mine).toBeUndefined();
+  });
+
+  it('rejects any other value for mine', async () => {
+    expect((await check({ mine: 'yes' })).errors).toHaveLength(1);
+  });
 });

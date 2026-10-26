@@ -17,11 +17,17 @@ export class QuacksService {
 
   constructor(private readonly quackRepository: QuackRepository) {}
 
-  async getQuacks(viewerId: string, search?: string): Promise<Quack[]> {
+  async getQuacks(
+    viewerId: string,
+    search?: string,
+    onlyMine = false,
+  ): Promise<Quack[]> {
     const quacks = await this.quackRepository.getQuacks(
       viewerId,
       new Date(),
       search,
+      // "mine" is the signed-in user, never an id sent by the client
+      onlyMine ? viewerId : undefined,
     );
     if (search) {
       // Usage metric only: how long, how many words, how many hits. The search
@@ -57,6 +63,18 @@ export class QuacksService {
       },
       now,
     );
+  }
+
+  async deleteQuack(user: Identity, quackId: string): Promise<void> {
+    const authorId = await this.quackRepository.findQuackAuthorId(quackId);
+    if (authorId === null) {
+      throw new NotFoundException('This quack does not exist');
+    }
+    // ownership is checked on the server, on every request
+    if (authorId !== user.id) {
+      throw new ForbiddenException('You can only delete your own quacks');
+    }
+    await this.quackRepository.deleteQuack(quackId);
   }
 
   async voteOnPoll(
