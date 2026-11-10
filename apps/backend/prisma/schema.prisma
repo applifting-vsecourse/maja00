@@ -31,17 +31,31 @@ enum QuackMood {
   @@map("quack_mood")
 }
 
+// A quack is either live (text + author) or a tombstone: a deleted quack that
+// still has replies, with no text, mood, author or poll left. See
+// docs/adr/0001-anonymous-tombstones.md. The CHECK constraints live in the
+// replies migration (Prisma does not model them).
 model Quack {
   id        String     @id @default(cuid())
-  text      String     @db.Text
+  /// null only on a tombstone
+  text      String?    @db.Text
   mood      QuackMood?
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
+  /// null only on a tombstone: the author of deleted content is not kept
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String?
+  /// the quack this one replies to; null = top-level quack
+  parent    Quack?     @relation("QuackReplies", fields: [parentId], references: [id], onDelete: SetNull)
+  parentId  String?
+  replies   Quack[]    @relation("QuackReplies")
+  /// set when a quack with replies is deleted; the row stays as a tombstone
+  deletedAt DateTime?
   poll      Poll?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @default(now()) @updatedAt
 
   @@index([userId])
+  // children of a quack (thread, reply counts) + top-level feed newest first
+  @@index([parentId, createdAt])
   @@map("quack")
 }
 

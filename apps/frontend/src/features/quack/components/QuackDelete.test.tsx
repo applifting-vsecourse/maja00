@@ -1,18 +1,36 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import type * as Router from "@tanstack/react-router"
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
-import type { Quack } from "@/features/quack/api/quackSchemas"
+import type { LiveQuack } from "@/features/quack/api/quackSchemas"
 import { QuackList } from "@/features/quack/components/QuackList"
+
+// The list links to threads. Outside a router a plain anchor is enough.
+vi.mock("@tanstack/react-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof Router>()),
+  Link: ({ children, className }: { children?: React.ReactNode; className?: string }) => (
+    <a
+      href="#thread"
+      className={className}
+    >
+      {children}
+    </a>
+  ),
+}))
 
 const deleteQuack = vi.fn()
 vi.mock("@/features/quack/api/deleteQuack", () => ({
   deleteQuack: (quackId: string) => deleteQuack(quackId) as Promise<void>,
 }))
 
-const quack = (overrides: Partial<Quack> = {}): Quack => ({
+const quack = (overrides: Partial<LiveQuack> = {}): LiveQuack => ({
   id: "q1",
+  deleted: false,
+  parentId: null,
+  parent: null,
+  replyCount: 0,
   text: "quack quack",
   mood: null,
   userId: "me",
@@ -85,6 +103,19 @@ describe("Deleting a quack", () => {
     await userEvent.click(screen.getByRole("button", { name: "Delete quack" }))
 
     expect(screen.getByRole("dialog")).not.toHaveTextContent(/as a moderator/)
+  })
+
+  it("says the replies stay when the quack has some", async () => {
+    renderList(
+      <QuackList
+        currentUserId="me"
+        quacks={[quack({ replyCount: 2 })]}
+      />,
+    )
+
+    await userEvent.click(screen.getByRole("button", { name: "Delete quack" }))
+
+    expect(screen.getByRole("dialog")).toHaveTextContent("The replies stay")
   })
 
   it("offers no Delete while the signed-in user is unknown", () => {

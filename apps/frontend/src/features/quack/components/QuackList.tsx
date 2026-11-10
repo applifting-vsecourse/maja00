@@ -6,7 +6,9 @@ import { cn } from "@/lib/utils"
 
 import type { Quack } from "@/features/quack/api/quackSchemas"
 import { toSearchWords } from "@/features/quack/api/quackSearch"
+import { DeletedQuackItem } from "@/features/quack/components/DeletedQuackItem"
 import { QuackItem } from "@/features/quack/components/QuackItem"
+import { RepliesLink } from "@/features/quack/components/RepliesLink"
 
 type QuackListProps = {
   quacks: Quack[]
@@ -130,6 +132,21 @@ export function QuackList({
 
       <div className={cn(isStale && "opacity-60 transition-opacity")}>
         {quacks.map((quack) => {
+          const repliesLink = (
+            <RepliesLink
+              quackId={quack.id}
+              replyCount={quack.replyCount}
+            />
+          )
+          // Only in the feed, and only while it still has replies to lead to.
+          if (quack.deleted) {
+            return (
+              <DeletedQuackItem
+                key={quack.id}
+                footer={repliesLink}
+              />
+            )
+          }
           const isOwn = currentUserId !== undefined && quack.userId === currentUserId
           return (
             <QuackItem
@@ -138,6 +155,9 @@ export function QuackList({
               highlight={words}
               canDelete={isOwn || canModerate}
               isModeration={!isOwn}
+              // Replies show up in search and Mine; say what they answer.
+              replyingTo={quack.parent}
+              footer={repliesLink}
             />
           )
         })}

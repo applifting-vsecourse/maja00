@@ -39,6 +39,10 @@ const voted: Poll = {
 
 const quackWith = (poll: Poll): Quack => ({
   id: "q1",
+  deleted: false,
+  parentId: null,
+  parent: null,
+  replyCount: 0,
   text: "Where do we go for lunch?",
   mood: null,
   userId: "author",
@@ -60,7 +64,7 @@ function renderPoll(poll: Poll) {
       queryFn: () => Promise.resolve([server.quack]),
     })
     const quack = data?.[0]
-    return quack?.poll ? (
+    return quack && !quack.deleted && quack.poll ? (
       <QuackPoll
         quackId={quack.id}
         poll={quack.poll}

@@ -5,10 +5,11 @@ import { signIn } from "./signIn"
 const API = "http://localhost:4050/api"
 
 async function findQuackNotBy(page: Page, username: string): Promise<{ id: string }> {
-  const quacks: { id: string; user: { username: string } }[] = await (
+  // Deleted quacks (tombstones) have no author, so they are nobody's.
+  const quacks: { id: string; user: { username: string } | null }[] = await (
     await page.request.get(`${API}/quacks`)
   ).json()
-  return quacks.find((quack) => quack.user.username !== username)!
+  return quacks.find((quack) => quack.user !== null && quack.user.username !== username)!
 }
 
 test("author can post a quack and delete it", async ({ page }) => {
@@ -75,4 +76,60 @@ test("Mine shows only my quacks", async ({ page }) => {
   const quacks = page.getByRole("article")
   await expect(quacks.first()).toBeVisible()
   await expect(quacks.filter({ hasNotText: "@DeepDuckThoughts" })).toHaveCount(0)
+})
+
+test("replies stay when their quack is deleted, and its text is gone everywhere", async ({
+  browser,
+}) => {
+  const stamp = Date.now()
+  const original = `Pond meeting at noon ${stamp}`
+  const replyText = `I will bring bread ${stamp}`
+
+  // The author posts a quack.
+  const author = await browser.newPage()
+  await signIn(author, "caffeinatedduck@example.com", "password1")
+  const created = await author.request.post(`${API}/quacks`, { data: { text: original } })
+  expect(created.status()).toBe(201)
+  const { id } = (await created.json()) as { id: string }
+
+  // Someone else opens its thread and replies.
+  const replier = await browser.newPage()
+  await signIn(replier, "breadcritic@example.com", "password3")
+  await replier.goto(`/quacks/${id}`)
+  await expect(replier.getByRole("article").filter({ hasText: original })).toBeVisible()
+  await replier.getByRole("button", { name: "Reply" }).first().click()
+  await replier.getByLabel("Your reply").fill(replyText)
+  await replier.getByRole("button", { name: "Reply", exact: true }).last().click()
+  const replies = replier.getByRole("list", { name: "Replies" })
+  await expect(replies.getByText(replyText)).toBeVisible()
+
+  // The feed shows the reply count.
+  await author.goto("/quacks")
+  const inFeed = author.getByRole("article").filter({ hasText: original })
+  await expect(inFeed.getByRole("link", { name: "1 reply" })).toBeVisible()
+
+  // The author deletes it: the dialog says the replies stay.
+  await inFeed.getByRole("button", { name: "Delete quack" }).click()
+  const dialog = author.getByRole("dialog")
+  await expect(dialog).toContainText("The replies stay")
+  await dialog.getByRole("button", { name: "Delete" }).click()
+  await expect(dialog).toBeHidden()
+
+  // Feed: a placeholder that still leads to the reply, without the text.
+  await expect(author.getByText(original)).toHaveCount(0)
+
+  // Thread: placeholder on top, reply still there.
+  await replier.reload()
+  await expect(replier.getByText("This quack was deleted")).toBeVisible()
+  await expect(replier.getByRole("list", { name: "Replies" }).getByText(replyText)).toBeVisible()
+  await expect(replier.getByText(original)).toHaveCount(0)
+
+  // Search and the raw API: the text is nowhere.
+  const searched = await (
+    await replier.request.get(`${API}/quacks`, { params: { q: `meeting ${stamp}` } })
+  ).json()
+  expect(searched).toEqual([])
+  const thread = await (await replier.request.get(`${API}/quacks/${id}/thread`)).text()
+  expect(thread).not.toContain(original)
+  expect(thread).toContain(replyText)
 })

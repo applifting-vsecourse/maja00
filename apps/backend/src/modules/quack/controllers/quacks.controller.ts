@@ -26,7 +26,10 @@ import {
 import { CreateQuackDto } from './dto/create-quack.dto';
 import { ListQuacksQueryDto } from './dto/list-quacks-query.dto';
 import { PollResponseDto } from './dto/poll.response.dto';
-import { QuackResponseDto } from './dto/quack.response.dto';
+import {
+  QuackResponseDto,
+  QuackThreadResponseDto,
+} from './dto/quack.response.dto';
 import { VoteDto } from './dto/vote.dto';
 
 @ApiTags('quacks')
@@ -63,11 +66,34 @@ export class QuacksController {
     return quacks.map(QuackResponseDto.fromDomain);
   }
 
+  @Get(':quackId/thread')
+  @ApiOperation({
+    summary: 'A quack with the quacks above it and all replies below it',
+  })
+  @ApiResponse({ status: 200, type: QuackThreadResponseDto })
+  @ApiResponse({ status: 401, description: 'Not signed in' })
+  @ApiResponse({ status: 404, description: 'No such quack' })
+  async thread(
+    @User() user: Identity,
+    @Param('quackId') quackId: string,
+  ): Promise<QuackThreadResponseDto> {
+    const thread = await this.quacksService.getThread(user.id, quackId);
+    return QuackThreadResponseDto.fromDomain(thread);
+  }
+
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a quack' })
+  @ApiOperation({
+    summary: 'Create a quack, or a reply when `parentId` is set',
+  })
   @ApiResponse({ status: 201, type: QuackResponseDto })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid body, or a reply with a poll',
+  })
   @ApiResponse({ status: 401, description: 'Not signed in' })
+  @ApiResponse({ status: 404, description: 'The parent quack does not exist' })
+  @ApiResponse({ status: 409, description: 'The parent quack was deleted' })
   async create(
     @User() user: Identity,
     @Body() body: CreateQuackDto,
@@ -76,6 +102,7 @@ export class QuacksController {
       text: body.text,
       mood: body.mood,
       poll: body.poll,
+      parentId: body.parentId,
     });
     return QuackResponseDto.fromDomain(quack);
   }
@@ -85,7 +112,8 @@ export class QuacksController {
   @ApiOperation({
     summary: 'Delete a quack (its author, or an admin)',
     description:
-      'Only the author or an admin may delete a quack. Both are checked against the session on every request.',
+      'Only the author or an admin may delete a quack. Both are checked against the session on every request. ' +
+      'A quack with replies is not removed: its text, mood, author and poll are erased and it stays as a tombstone, so the replies keep their place.',
   })
   @ApiResponse({ status: 204, description: 'Deleted' })
   @ApiResponse({ status: 401, description: 'Not signed in' })
@@ -94,6 +122,7 @@ export class QuacksController {
     description: 'You are neither the author nor an admin',
   })
   @ApiResponse({ status: 404, description: 'No such quack' })
+  @ApiResponse({ status: 409, description: 'The quack was already deleted' })
   async remove(
     @User() user: Identity,
     @Param('quackId') quackId: string,

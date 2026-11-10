@@ -1,13 +1,31 @@
 // Example component test — the pattern to copy for your own components.
+import type * as Router from "@tanstack/react-router"
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
-import type { Quack } from "@/features/quack/api/quackSchemas"
+import type { LiveQuack } from "@/features/quack/api/quackSchemas"
 import { QuackList } from "@/features/quack/components/QuackList"
 
-const quack = (overrides: Partial<Quack> = {}): Quack => ({
+// The list links to threads. Outside a router a plain anchor is enough.
+vi.mock("@tanstack/react-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof Router>()),
+  Link: ({ children, className }: { children?: React.ReactNode; className?: string }) => (
+    <a
+      href="#thread"
+      className={className}
+    >
+      {children}
+    </a>
+  ),
+}))
+
+const quack = (overrides: Partial<LiveQuack> = {}): LiveQuack => ({
   id: "q1",
+  deleted: false,
+  parentId: null,
+  parent: null,
+  replyCount: 0,
   text: "quack quack",
   mood: null,
   userId: "u1",
@@ -150,5 +168,53 @@ describe("QuackList while searching", () => {
     )
 
     expect(screen.queryByText(/no quacks match/i)).not.toBeInTheDocument()
+  })
+
+  describe("replies", () => {
+    it("leads to the replies of a quack", () => {
+      render(<QuackList quacks={[quack({ replyCount: 3 }), quack({ id: "q2" })]} />)
+
+      expect(screen.getByRole("link", { name: "3 replies" })).toBeInTheDocument()
+      // no replies yet: the same link invites the first one
+      expect(screen.getByRole("link", { name: "Reply" })).toBeInTheDocument()
+    })
+
+    it("shows a deleted quack only as a placeholder in front of its replies", () => {
+      const tombstone = {
+        id: "q9",
+        deleted: true as const,
+        parentId: null,
+        parent: null,
+        replyCount: 2,
+        createdAt: new Date("2026-01-01T12:00:00Z"),
+      }
+      render(<QuackList quacks={[tombstone]} />)
+
+      const item = screen.getByRole("article")
+      expect(item).toHaveTextContent("This quack was deleted")
+      expect(screen.getByRole("link", { name: "2 replies" })).toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: "Delete quack" })).not.toBeInTheDocument()
+    })
+
+    it("says what a reply answers", () => {
+      render(
+        <QuackList
+          quacks={[
+            quack({
+              parentId: "p1",
+              parent: { id: "p1", deleted: false, username: "BreadCritic" },
+            }),
+            quack({
+              id: "q2",
+              parentId: "p2",
+              parent: { id: "p2", deleted: true, username: null },
+            }),
+          ]}
+        />,
+      )
+
+      expect(screen.getByRole("link", { name: "Replying to @BreadCritic" })).toBeInTheDocument()
+      expect(screen.getByRole("link", { name: "Replying to a deleted quack" })).toBeInTheDocument()
+    })
   })
 })
