@@ -31,9 +31,14 @@ type QuackFormProps = {
   // The mood the form starts with (and returns to after posting) — the one
   // the user picked in their settings.
   defaultMood?: QuackMood | null
+  // Set: the form posts a reply to this quack. Replies have no poll.
+  parentId?: string
+  // Called after the server accepted the quack.
+  onPosted?: () => void
 }
 
-export function QuackForm({ className, defaultMood }: QuackFormProps) {
+export function QuackForm({ className, defaultMood, parentId, onPosted }: QuackFormProps) {
+  const isReply = parentId !== undefined
   const startMood = defaultMood ?? NO_MOOD
   const addQuack = useAddQuack()
   const form = useForm<QuackFormValues>({
@@ -74,8 +79,14 @@ export function QuackForm({ className, defaultMood }: QuackFormProps) {
               ),
             }
           : undefined,
+        parentId,
       },
-      { onSuccess: () => form.reset({ text: "", mood: startMood, poll: undefined }) },
+      {
+        onSuccess: () => {
+          form.reset({ text: "", mood: startMood, poll: undefined })
+          onPosted?.()
+        },
+      },
     )
   }
 
@@ -98,11 +109,14 @@ export function QuackForm({ className, defaultMood }: QuackFormProps) {
             name="text"
             render={({ field }) => (
               <FormItem className="flex-1">
-                <FormLabel>New quack</FormLabel>
+                <FormLabel>{isReply ? "Your reply" : "New quack"}</FormLabel>
                 <FormControl>
                   <Textarea
-                    rows={3}
-                    placeholder="Quack something..."
+                    rows={isReply ? 2 : 3}
+                    placeholder={isReply ? "Quack back..." : "Quack something..."}
+                    // The reply form opens because the user asked to reply.
+                    // eslint-disable-next-line jsx-a11y/no-autofocus
+                    autoFocus={isReply}
                     disabled={addQuack.isPending}
                     {...field}
                   />
@@ -132,16 +146,20 @@ export function QuackForm({ className, defaultMood }: QuackFormProps) {
         {hasPoll ? <PollFields isDisabled={addQuack.isPending} /> : null}
 
         <div className="flex items-center justify-end gap-3">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="mr-auto"
-            disabled={addQuack.isPending}
-            onClick={togglePoll}
-          >
-            {hasPoll ? "Remove poll" : "Add poll"}
-          </Button>
+          {isReply ? (
+            <span className="mr-auto" />
+          ) : (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mr-auto"
+              disabled={addQuack.isPending}
+              onClick={togglePoll}
+            >
+              {hasPoll ? "Remove poll" : "Add poll"}
+            </Button>
+          )}
           <span
             className={cn(
               "text-sm",
@@ -156,7 +174,7 @@ export function QuackForm({ className, defaultMood }: QuackFormProps) {
             disabled={addQuack.isPending}
           >
             {addQuack.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-            Quack
+            {isReply ? "Reply" : "Quack"}
           </Button>
         </div>
       </form>

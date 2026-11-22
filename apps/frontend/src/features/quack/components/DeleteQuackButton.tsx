@@ -19,10 +19,16 @@ type DeleteQuackButtonProps = {
   quackId: string
   // A moderator deleting a quack someone else wrote.
   isModeration?: boolean
+  // Replies stay when their quack is deleted; the dialog says so.
+  replyCount?: number
 }
 
 // Hiding this button is a convenience. The server decides who may delete.
-export function DeleteQuackButton({ quackId, isModeration = false }: DeleteQuackButtonProps) {
+export function DeleteQuackButton({
+  quackId,
+  isModeration = false,
+  replyCount = 0,
+}: DeleteQuackButtonProps) {
   const [isOpen, setIsOpen] = useState(false)
   const deleteQuack = useDeleteQuack()
 
@@ -53,7 +59,10 @@ export function DeleteQuackButton({ quackId, isModeration = false }: DeleteQuack
             {isModeration
               ? "You are deleting a quack written by someone else as a moderator. "
               : null}
-            It disappears from the feed for everyone. This can&apos;t be undone.
+            {replyCount > 0
+              ? "Its text is removed for everyone. The replies stay, under “This quack was deleted”. "
+              : "It disappears from the feed for everyone. "}
+            This can&apos;t be undone.
           </DialogDescription>
         </DialogHeader>
 

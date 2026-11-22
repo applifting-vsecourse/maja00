@@ -13,7 +13,9 @@ function mapPoll(
   update: (poll: Poll) => Poll,
 ): Quack[] | undefined {
   return quacks?.map((quack) =>
-    quack.id === quackId && quack.poll ? { ...quack, poll: update(quack.poll) } : quack,
+    quack.id === quackId && !quack.deleted && quack.poll
+      ? { ...quack, poll: update(quack.poll) }
+      : quack,
   )
 }
 
@@ -52,6 +54,7 @@ export function useVoteOnPoll() {
         queryClient.setQueryData(key, data)
       }
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: quackKeys.lists() }),
+    // Threads too: a top-level poll is also shown at the top of its thread.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: quackKeys.all() }),
   })
 }

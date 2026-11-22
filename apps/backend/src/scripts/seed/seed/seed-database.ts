@@ -1,5 +1,5 @@
 import { PrismaService } from '@/core/prisma/prisma.service';
-import { User } from '@/generated/prisma/client';
+import { Quack, User } from '@/generated/prisma/client';
 import { BetterAuth } from '@/shared/auth/providers/better-auth.provider';
 import { Config } from '@/shared/config/config.service';
 import { createPoll } from './create-poll';
@@ -166,12 +166,54 @@ Please stop tagging me.`,
 
   const now = Date.now();
 
+  const quackIdByText = new Map<string, string>();
   for (const { author, minutesAgo, text } of exampleQuacks) {
-    await createQuack(prisma, {
+    const quack = await createQuack(prisma, {
       text,
       userId: author.id,
       createdAt: new Date(now - minutesAgo * MINUTE_IN_MS),
     });
+    quackIdByText.set(text, quack.id);
+  }
+
+  console.log('Creating example replies');
+
+  // A small thread under the pond-is-a-sky quack, three levels deep. Each
+  // reply is written after the one it answers.
+  const pondQuackId = quackIdByText.get(
+    `If a pond reflects the sky, is the sky just a very large and very shy pond?`,
+  );
+  if (pondQuackId) {
+    const reply = (
+      parentId: string,
+      author: User,
+      minutesAgo: number,
+      text: string,
+    ): Promise<Quack> =>
+      createQuack(prisma, {
+        text,
+        userId: author.id,
+        parentId,
+        createdAt: new Date(now - minutesAgo * MINUTE_IN_MS),
+      });
+    const critic = await reply(
+      pondQuackId,
+      breadCritic,
+      1400,
+      'The sky has never once thrown me bread. Not a pond. 2/10.',
+    );
+    await reply(
+      critic.id,
+      deepDuckThoughts,
+      1350,
+      'Maybe the rain is the bread, and we have simply been ungrateful.',
+    );
+    await reply(
+      pondQuackId,
+      caffeinatedDuck,
+      1300,
+      'i tried to swim in the sky once. it was a window',
+    );
   }
 
   console.log('Creating example polls');

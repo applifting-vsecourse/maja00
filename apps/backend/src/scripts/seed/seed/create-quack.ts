@@ -1,5 +1,5 @@
 import { PrismaService } from '@/core/prisma/prisma.service';
-import { Quack } from '@/modules/quack/domain/quack';
+import { Quack } from '@/generated/prisma/client';
 
 type CreateQuackParams = {
   text: string;
@@ -7,13 +7,15 @@ type CreateQuackParams = {
   // Optional so the seed can spread posts over time. Without it every seeded
   // quack shares one timestamp and the feed reads like a single burst.
   createdAt?: Date;
+  // Set: the quack is a reply to this quack.
+  parentId?: string;
 };
 
 export async function createQuack(
   prisma: PrismaService,
   params: CreateQuackParams,
 ): Promise<Quack> {
-  const { text, userId, createdAt } = params;
+  const { text, userId, createdAt, parentId } = params;
 
   return await prisma.quack.create({
     data: {
@@ -24,6 +26,7 @@ export async function createQuack(
           id: userId,
         },
       },
+      ...(parentId ? { parent: { connect: { id: parentId } } } : {}),
     },
   });
 }
