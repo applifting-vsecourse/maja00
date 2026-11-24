@@ -16,6 +16,8 @@ The worked example is the quack feed: `Quack` model → seed → repository → 
 - `pnpm dev` — everything: env files, Postgres (Docker), migrate, seed, both dev servers
 - `pnpm check-all` — lint + type-check + tests + build (same as CI)
 - `pnpm backend test` / `pnpm frontend test:ci` — unit tests
+- `pnpm backend test:int` — integration tests (`*.int-spec.ts`): the real app over HTTP (supertest) against the `quacker_test` database, never the dev DB. Helpers in `apps/backend/src/test/integration/` (`createTestApp`, `signUp`, `reset`).
+- `pnpm frontend e2e` — Playwright tests in `apps/frontend/e2e` (needs the app running)
 - `pnpm backend prisma:migrations:run` — create/apply migrations after schema changes
 
 ## Conventions

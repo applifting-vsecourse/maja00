@@ -6,6 +6,7 @@ on:
     branches: [main]
 
 jobs:
+  # Fast checks on every change: format, lint, types, unit tests, build.
   verify:
     runs-on: ubuntu-latest
     steps:
@@ -50,3 +51,157 @@ jobs:
 
       - name: Build frontend
         run: pnpm frontend build
+
+  # The API over HTTP (supertest) against a real Postgres. The tests create
+  # and migrate `quacker_test` themselves, from DATABASE_URL in .env.example.
+  test-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: quacker
+          POSTGRES_PASSWORD: quacker
+          POSTGRES_DB: quacker
+        # Same host port as the local Docker DB, so .env.example works as is.
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U quacker -d quacker"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create env files
+        run: pnpm env:check
+
+      - name: Generate Prisma client
+        run: pnpm backend prisma:generate
+
+      - name: Integration tests
+        run: pnpm backend test:int
+
+  # The whole app in a browser: CI starts its own DB, backend and frontend,
+  # seeds the DB and runs the Playwright tests in apps/frontend/e2e.
+  test-e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: quacker
+          POSTGRES_PASSWORD: quacker
+          POSTGRES_DB: quacker
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U quacker -d quacker"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create env files
+        run: pnpm env:check
+
+      - name: Migrate and seed the database
+        run: |
+          pnpm backend prisma:generate
+          pnpm backend migrate
+          pnpm backend seed
+
+      - name: Build backend and frontend
+        run: |
+          pnpm backend build
+          pnpm frontend build
+
+      - name: Install Playwright browser
+        run: pnpm --filter frontend exec playwright install --with-deps chromium
+
+      - name: Start backend and frontend
+        run: |
+          mkdir -p logs
+          (cd apps/backend && nohup node --env-file=.env dist/main > ../../logs/backend.log 2>&1 &)
+          (cd apps/frontend && nohup pnpm exec vite preview --port 3050 --strictPort > ../../logs/frontend.log 2>&1 &)
+
+      - name: Wait for the app
+        run: |
+          for url in http://localhost:4050/api/docs http://localhost:3050; do
+            for i in $(seq 1 60); do
+              curl -fsS -o /dev/null "$url" && break
+              [ "$i" = 60 ] && { echo "$url did not come up"; cat logs/*.log; exit 1; }
+              sleep 1
+            done
+          done
+
+      - name: E2E tests
+        run: pnpm frontend e2e
+
+      - name: Upload Playwright report and server logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: |
+            apps/frontend/playwright-report/
+            apps/frontend/test-results/
+            logs/
+          retention-days: 7
+
+  # Fails when a pull request removes or rewrites lines in an existing test.
+  # Adding tests is fine. A red result here is a question for the reviewer
+  # ("why did this test change?"), so it is deliberately NOT a required check
+  # and does not block merging. The PR description has to explain the change.
+  test-changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check that existing tests were not changed
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          base="origin/$BASE_REF"
+          # numstat columns: added, removed, path. Any removed line in a test
+          # file means an existing test was changed or deleted.
+          changed=$(git diff --numstat "$base...HEAD" -- \
+              '*.spec.ts' '*.int-spec.ts' '*.test.ts' '*.test.tsx' 'apps/frontend/e2e/' \
+            | awk '$2 != "0" { print $3 }')
+
+          if [ -n "$changed" ]; then
+            echo "This PR removes or rewrites lines in existing tests:"
+            for file in $changed; do
+              echo "::error file=$file::Existing test changed. Explain why in the PR description."
+              echo "  $file"
+            done
+            echo
+            git diff "$base...HEAD" -- $changed
+            exit 1
+          fi
+          echo "No existing tests were changed (only additions)."
