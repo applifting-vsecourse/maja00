@@ -1,3 +1,4 @@
+import { LikeState } from '@/modules/quack/domain/like';
 import { closesAtFor, isClosed, PollView } from '@/modules/quack/domain/poll';
 import { Quack, QuackMood, QuackThread } from '@/modules/quack/domain/quack';
 import { toSearchWords } from '@/modules/quack/domain/quack-search';
@@ -143,6 +144,21 @@ export class QuacksService {
         `Moderation: admin ${user.id} deleted quack ${quackId} written by ${authorId}`,
       );
     }
+  }
+
+  /**
+   * Likes a live quack, own quacks included. Safe to repeat.
+   * See docs/adr/0002-likes.md.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- stub
+  async likeQuack(user: Identity, quackId: string): Promise<LikeState> {
+    throw new Error('not implemented');
+  }
+
+  /** Removes the user's like. Safe to repeat. */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- stub
+  async unlikeQuack(user: Identity, quackId: string): Promise<LikeState> {
+    throw new Error('not implemented');
   }
 
   async voteOnPoll(

@@ -44,7 +44,16 @@ const quackBase = {
   parent: quackParentSchema.nullable(),
   // direct replies, deleted ones included
   replyCount: z.number(),
+  // Likes, for the signed-in viewer. See docs/adr/0002-likes.md.
+  likeCount: z.number().optional(),
+  likedByMe: z.boolean().optional(),
 }
+
+// What liking or unliking a quack answers with.
+export const likeStateSchema = z.object({
+  likeCount: z.number(),
+  likedByMe: z.boolean(),
+})
 
 export const liveQuackSchema = z.object({
   ...quackBase,
@@ -75,6 +84,7 @@ export const quackThreadSchema = z.object({
   descendants: z.array(quackSchema),
 })
 
+export type LikeState = z.infer<typeof likeStateSchema>
 export type Poll = z.infer<typeof pollSchema>
 export type QuackParent = z.infer<typeof quackParentSchema>
 export type LiveQuack = z.infer<typeof liveQuackSchema>

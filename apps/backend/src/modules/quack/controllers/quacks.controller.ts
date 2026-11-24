@@ -24,6 +24,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { CreateQuackDto } from './dto/create-quack.dto';
+import { LikeResponseDto } from './dto/like.response.dto';
 import { ListQuacksQueryDto } from './dto/list-quacks-query.dto';
 import { PollResponseDto } from './dto/poll.response.dto';
 import {
@@ -128,6 +129,41 @@ export class QuacksController {
     @Param('quackId') quackId: string,
   ): Promise<void> {
     await this.quacksService.deleteQuack(user, quackId);
+  }
+
+  @Put(':quackId/like')
+  @ApiOperation({
+    summary: 'Like a quack',
+    description:
+      'Any live quack, your own and replies included. Safe to repeat: liking twice keeps one like.',
+  })
+  @ApiResponse({ status: 200, type: LikeResponseDto })
+  @ApiResponse({ status: 401, description: 'Not signed in' })
+  @ApiResponse({ status: 404, description: 'No such quack' })
+  @ApiResponse({ status: 409, description: 'The quack was deleted' })
+  async like(
+    @User() user: Identity,
+    @Param('quackId') quackId: string,
+  ): Promise<LikeResponseDto> {
+    const state = await this.quacksService.likeQuack(user, quackId);
+    return LikeResponseDto.fromDomain(state);
+  }
+
+  @Delete(':quackId/like')
+  @ApiOperation({
+    summary: 'Remove your like from a quack',
+    description: 'Safe to repeat, also when you have not liked it.',
+  })
+  @ApiResponse({ status: 200, type: LikeResponseDto })
+  @ApiResponse({ status: 401, description: 'Not signed in' })
+  @ApiResponse({ status: 404, description: 'No such quack' })
+  @ApiResponse({ status: 409, description: 'The quack was deleted' })
+  async unlike(
+    @User() user: Identity,
+    @Param('quackId') quackId: string,
+  ): Promise<LikeResponseDto> {
+    const state = await this.quacksService.unlikeQuack(user, quackId);
+    return LikeResponseDto.fromDomain(state);
   }
 
   @Put(':quackId/poll/vote')

@@ -4,6 +4,7 @@ import {
   Poll as PrismaPoll,
   PollOption as PrismaPollOption,
 } from '@/generated/prisma/client';
+import { LikeState } from '@/modules/quack/domain/like';
 import { Poll, PollView, toPollView } from '@/modules/quack/domain/poll';
 import {
   Quack,
@@ -118,6 +119,9 @@ const mapPrismaQuackToDomain = (
 };
 
 export type CreateReplyResult = Quack | 'parent-not-found' | 'parent-deleted';
+
+/** The likes after the change, or why there was nothing to like. */
+export type LikeResult = LikeState | 'not-found' | 'deleted';
 
 export type DeleteQuackResult =
   | 'not-found'
@@ -409,6 +413,21 @@ export class QuackRepository {
       }
       return 'deleted';
     });
+  }
+
+  /**
+   * Likes a live quack for this user. Liking twice keeps one like.
+   * See docs/adr/0002-likes.md.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- stub
+  async likeQuack(quackId: string, userId: string): Promise<LikeResult> {
+    throw new Error('not implemented');
+  }
+
+  /** Removes this user's like, if there is one. */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- stub
+  async unlikeQuack(quackId: string, userId: string): Promise<LikeResult> {
+    throw new Error('not implemented');
   }
 
   /** Locks one quack row until the transaction ends. */
