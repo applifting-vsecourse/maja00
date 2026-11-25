@@ -7,6 +7,6 @@ test("signed-out visitor is sent to the login page", async ({ page }) => {
   await expect(page).toHaveURL(/\/login/)
 })
 
-test("user can log in", async ({ page }) => {
+test("user can sign in", async ({ page }) => {
   await signIn(page, "caffeinatedduck@example.com", "password1")
 })
