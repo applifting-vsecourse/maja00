@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import type { LiveQuack, QuackParent } from "@/features/quack/api/quackSchemas"
 import { DeleteQuackButton } from "@/features/quack/components/DeleteQuackButton"
 import { Highlighted } from "@/features/quack/components/Highlighted"
+import { LikeButton } from "@/features/quack/components/LikeButton"
 import { QuackPoll } from "@/features/quack/components/QuackPoll"
 import { ReplyingTo } from "@/features/quack/components/ReplyingTo"
 import { UsersName } from "@/features/quack/components/UsersName"
@@ -23,7 +24,8 @@ type QuackItemProps = {
   isModeration?: boolean
   // Set: show which quack this one answers, as a link to its thread.
   replyingTo?: QuackParent | null
-  // Actions under the text: a link to the replies, or a Reply button.
+  // Actions under the text, after the like button: a link to the replies, or
+  // a Reply button.
   footer?: ReactNode
   // Extra classes for the article, e.g. to mark the opened quack of a thread.
   className?: string
@@ -102,7 +104,14 @@ export function QuackItem({
             poll={quack.poll}
           />
         ) : null}
-        {footer ? <div className="flex items-center gap-2 pt-1">{footer}</div> : null}
+        <div className="flex items-center gap-2 pt-1">
+          <LikeButton
+            quackId={quack.id}
+            likeCount={quack.likeCount ?? 0}
+            likedByMe={quack.likedByMe ?? false}
+          />
+          {footer}
+        </div>
       </div>
     </article>
   )

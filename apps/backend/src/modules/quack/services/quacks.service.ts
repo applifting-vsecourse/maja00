@@ -2,7 +2,10 @@ import { LikeState } from '@/modules/quack/domain/like';
 import { closesAtFor, isClosed, PollView } from '@/modules/quack/domain/poll';
 import { Quack, QuackMood, QuackThread } from '@/modules/quack/domain/quack';
 import { toSearchWords } from '@/modules/quack/domain/quack-search';
-import { QuackRepository } from '@/modules/quack/repositories/quack.repository';
+import {
+  LikeResult,
+  QuackRepository,
+} from '@/modules/quack/repositories/quack.repository';
 import { Identity } from '@/shared/auth/domain/identity';
 import {
   BadRequestException,
@@ -150,15 +153,29 @@ export class QuacksService {
    * Likes a live quack, own quacks included. Safe to repeat.
    * See docs/adr/0002-likes.md.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- stub
   async likeQuack(user: Identity, quackId: string): Promise<LikeState> {
-    throw new Error('not implemented');
+    // the liker is taken from the session, never from the request
+    return this.toLikeState(
+      await this.quackRepository.likeQuack(quackId, user.id),
+    );
   }
 
   /** Removes the user's like. Safe to repeat. */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- stub
   async unlikeQuack(user: Identity, quackId: string): Promise<LikeState> {
-    throw new Error('not implemented');
+    return this.toLikeState(
+      await this.quackRepository.unlikeQuack(quackId, user.id),
+    );
+  }
+
+  private toLikeState(result: LikeResult): LikeState {
+    if (result === 'not-found') {
+      throw new NotFoundException('This quack does not exist');
+    }
+    // A tombstone can't be liked or unliked (docs/adr/0002-likes.md).
+    if (result === 'deleted') {
+      throw new ConflictException('This quack was deleted');
+    }
+    return result;
   }
 
   async voteOnPoll(

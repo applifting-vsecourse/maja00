@@ -79,6 +79,14 @@ export class QuackResponseDto {
   @ApiProperty({ description: 'Number of direct replies' })
   replyCount!: number;
 
+  @ApiProperty({ description: 'Number of likes; 0 for a deleted quack' })
+  likeCount!: number;
+
+  @ApiProperty({
+    description: 'Whether the signed-in user likes it; false when deleted',
+  })
+  likedByMe!: boolean;
+
   static fromDomain(quack: Quack): QuackResponseDto {
     const common = {
       id: quack.id,
@@ -90,6 +98,8 @@ export class QuackResponseDto {
     if (quack.deleted) {
       return {
         ...common,
+        likeCount: 0,
+        likedByMe: false,
         deleted: true,
         text: null,
         mood: null,
@@ -105,6 +115,8 @@ export class QuackResponseDto {
     }
     return {
       ...common,
+      likeCount: quack.likeCount ?? 0,
+      likedByMe: quack.likedByMe ?? false,
       deleted: false,
       text: quack.text,
       mood: quack.mood,

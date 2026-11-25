@@ -13,6 +13,7 @@ These are rules, not suggestions. When a rule and a "nicer looking" idea disagre
 - **Never hardcode a colour.** No `#hex`, no `bg-blue-500`, no `rgb()`. Use the semantic classes only: `bg-background`, `text-foreground`, `text-muted-foreground`, `bg-card`, `bg-primary`, `bg-secondary`, `border-border`, `bg-destructive`.
 - **`primary` is for actions, not decoration.** One primary button per view. Everything else is `outline`, `ghost` or a plain link.
 - **`destructive` only for destructive actions and errors.** Never for emphasis.
+- **`like` only for the liked state.** It colours the duck (`text-like`) once I have liked a quack, nothing else: not hover, not counts, not other reactions. An unliked duck is `muted-foreground`.
 - **`accent` is a hover/active surface, not a brand colour.** It tints menu items and ghost buttons on hover, so it must stay quiet. The brand colour is `primary`.
 - Body text is `foreground`; supporting text is `muted-foreground`. There is no third level.
 
