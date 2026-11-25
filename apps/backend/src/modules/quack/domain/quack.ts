@@ -26,6 +26,10 @@ type QuackBase = {
   updatedAt: Date;
   // Direct replies, tombstones included. Loaded with lists and threads.
   replyCount?: number;
+  // Likes, for the viewer the quack was loaded for. Loaded with lists and
+  // threads. A tombstone has none.
+  likeCount?: number;
+  likedByMe?: boolean;
   // Loaded with lists, so a reply can say what it answers.
   parent?: QuackParent | null;
 };

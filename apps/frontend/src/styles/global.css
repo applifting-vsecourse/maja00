@@ -22,6 +22,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-like: var(--like);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -64,6 +65,8 @@
   --accent-foreground: oklch(0.4335 0.0754 182.2315);
   --destructive: oklch(0.55 0.2058 29.0773);
   --destructive-foreground: oklch(1 0 0);
+  /* The liked duck only. 5.4:1 on background, 4.9:1 on accent. */
+  --like: oklch(0.55 0.2 22);
   --border: oklch(0.9436 0.0051 228.8204);
   --input: oklch(0.9436 0.0051 228.8204);
   --ring: oklch(0.761 0.2015 149.7403);
@@ -95,6 +98,8 @@
   --accent-foreground: oklch(0.6509 0.1283 170.4258);
   --destructive: oklch(0.6257 0.2058 29.0773);
   --destructive-foreground: oklch(0.9436 0.0051 228.8204);
+  /* 6.4:1 on background, 4.7:1 on accent. */
+  --like: oklch(0.7 0.17 22);
   --border: oklch(0.3351 0.0253 234.8586);
   --input: oklch(0.3351 0.0253 234.8586);
   --ring: oklch(0.6509 0.1283 170.4258);

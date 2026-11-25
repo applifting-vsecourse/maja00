@@ -50,6 +50,7 @@ model Quack {
   /// set when a quack with replies is deleted; the row stays as a tombstone
   deletedAt DateTime?
   poll      Poll?
+  likes     QuackLike[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @default(now()) @updatedAt
 
@@ -99,6 +100,21 @@ model PollVote {
   @@id([pollId, userId])
   @@index([optionId])
   @@map("poll_vote")
+}
+
+// One like by one user on one quack. The count is not stored: it is counted
+// from these rows when quacks are read. See docs/adr/0002-likes.md.
+model QuackLike {
+  quack     Quack    @relation(fields: [quackId], references: [id], onDelete: Cascade)
+  quackId   String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime @default(now())
+
+  // One like per user per quack, enforced by the database.
+  @@id([quackId, userId])
+  @@index([userId])
+  @@map("quack_like")
 }
 
 model Session {
@@ -161,6 +177,7 @@ model User {
   accounts        Account[]
   quacks          Quack[]
   pollVotes       PollVote[]
+  quackLikes      QuackLike[]
   role            UserRole  @default(user)
   bio             String?   @db.VarChar(160)
   defaultMood     QuackMood?

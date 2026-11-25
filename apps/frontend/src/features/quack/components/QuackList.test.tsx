@@ -1,11 +1,21 @@
 // Example component test — the pattern to copy for your own components.
+import type { ReactNode } from "react"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import type * as Router from "@tanstack/react-router"
-import { render, screen } from "@testing-library/react"
+import { render as renderWithoutProviders, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
 import type { LiveQuack } from "@/features/quack/api/quackSchemas"
 import { QuackList } from "@/features/quack/components/QuackList"
+
+// Every live quack has a like button, which needs a query client, as in the app.
+const render = (ui: ReactNode) =>
+  renderWithoutProviders(ui, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
+    ),
+  })
 
 // The list links to threads. Outside a router a plain anchor is enough.
 vi.mock("@tanstack/react-router", async (importOriginal) => ({

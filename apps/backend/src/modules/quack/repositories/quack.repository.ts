@@ -4,6 +4,7 @@ import {
   Poll as PrismaPoll,
   PollOption as PrismaPollOption,
 } from '@/generated/prisma/client';
+import { LikeState } from '@/modules/quack/domain/like';
 import { Poll, PollView, toPollView } from '@/modules/quack/domain/poll';
 import {
   Quack,
@@ -22,7 +23,12 @@ type Username = { username: string | null; displayUsername: string | null };
 const usernameOf = (user: Username): string =>
   user.displayUsername ?? user.username ?? '';
 
-/** What every quack read loads: author, poll, and the quack it answers. */
+/**
+ * What every quack read loads: author, poll, the quack it answers, and its
+ * likes as `viewerId` sees them. Prisma loads the like count and the viewer's
+ * own like for all rows of the page together with the rows, so the number of
+ * queries stays fixed per page (docs/adr/0002-likes.md).
+ */
 const QUACK_INCLUDE = {
   user: true,
   poll: { include: { options: true } },
@@ -33,7 +39,18 @@ const QUACK_INCLUDE = {
       user: { select: { username: true, displayUsername: true } },
     },
   },
+  _count: { select: { likes: true } },
 } satisfies Prisma.QuackInclude;
+
+type QuackIncludeFor = typeof QUACK_INCLUDE & {
+  // Only the viewer's own like: at most one row per quack.
+  likes: { where: { userId: string }; select: { userId: true } };
+};
+
+const quackInclude = (viewerId: string): QuackIncludeFor => ({
+  ...QUACK_INCLUDE,
+  likes: { where: { userId: viewerId }, select: { userId: true } },
+});
 
 type PrismaQuackRow = {
   id: string;
@@ -46,6 +63,9 @@ type PrismaQuackRow = {
   updatedAt: Date;
   user?: ({ id: string; name: string } & Username) | null;
   poll?: PrismaPollWithOptions | null;
+  _count?: { likes: number };
+  // The viewer's own like, if any.
+  likes?: { userId: string }[];
   parent?: {
     id: string;
     deletedAt: Date | null;
@@ -92,6 +112,8 @@ const mapPrismaQuackToDomain = (
     // A tombstone: nothing of the deleted quack leaves the repository.
     return {
       ...base,
+      likeCount: 0,
+      likedByMe: false,
       deleted: true,
       text: null,
       mood: null,
@@ -102,6 +124,8 @@ const mapPrismaQuackToDomain = (
   }
   return {
     ...base,
+    likeCount: quack._count?.likes ?? 0,
+    likedByMe: (quack.likes?.length ?? 0) > 0,
     deleted: false,
     text: quack.text,
     mood: quack.mood,
@@ -118,6 +142,9 @@ const mapPrismaQuackToDomain = (
 };
 
 export type CreateReplyResult = Quack | 'parent-not-found' | 'parent-deleted';
+
+/** The likes after the change, or why there was nothing to like. */
+export type LikeResult = LikeState | 'not-found' | 'deleted';
 
 export type DeleteQuackResult =
   | 'not-found'
@@ -162,7 +189,7 @@ export class QuackRepository {
         };
     const quacks = await this.prisma.quack.findMany({
       where,
-      include: QUACK_INCLUDE,
+      include: quackInclude(viewerId),
       orderBy: { createdAt: 'desc' },
     });
     return this.toDomain(quacks, viewerId, now);
@@ -196,7 +223,7 @@ export class QuackRepository {
     );
     const rows = await this.prisma.quack.findMany({
       where: { id: { in: [...up, ...down].map((row) => row.id) } },
-      include: QUACK_INCLUDE,
+      include: quackInclude(viewerId),
       orderBy: { createdAt: 'asc' },
     });
     const quacks = await this.toDomain(rows, viewerId, now);
@@ -216,7 +243,10 @@ export class QuackRepository {
     };
   }
 
-  /** Adds reply counts and viewer-shaped polls, in a fixed number of queries. */
+  /**
+   * Adds reply counts and viewer-shaped polls, in a fixed number of queries.
+   * Likes come with the rows (`quackInclude`).
+   */
   private async toDomain(
     quacks: PrismaQuackRow[],
     viewerId: string,
@@ -318,7 +348,7 @@ export class QuackRepository {
             }
           : {}),
       },
-      include: QUACK_INCLUDE,
+      include: quackInclude(createQuackData.userId),
     });
     // A new poll has no votes yet, and its viewer is its author.
     const view = quack.poll
@@ -355,7 +385,7 @@ export class QuackRepository {
           user: { connect: { id: reply.userId } },
           parent: { connect: { id: reply.parentId } },
         },
-        include: QUACK_INCLUDE,
+        include: quackInclude(reply.userId),
       });
       return mapPrismaQuackToDomain(quack, null, 0);
     });
@@ -391,6 +421,8 @@ export class QuackRepository {
 
       if ((await tx.quack.count({ where: { parentId: quackId } })) > 0) {
         await tx.poll.deleteMany({ where: { quackId } });
+        // Who liked deleted content is not kept (docs/adr/0002-likes.md).
+        await tx.quackLike.deleteMany({ where: { quackId } });
         await tx.quack.update({
           where: { id: quackId },
           data: { text: null, mood: null, userId: null, deletedAt: now },
@@ -409,6 +441,48 @@ export class QuackRepository {
       }
       return 'deleted';
     });
+  }
+
+  /**
+   * Likes a live quack for this user. Liking twice keeps one like.
+   * See docs/adr/0002-likes.md.
+   */
+  async likeQuack(quackId: string, userId: string): Promise<LikeResult> {
+    return this.prisma.$transaction(async (tx) => {
+      // Locked, so the quack can't turn into a tombstone (which deletes its
+      // likes) while the like is being written.
+      const quack = await this.lockQuack(tx, quackId);
+      if (!quack) return 'not-found';
+      if (quack.deletedAt) return 'deleted';
+      // The primary key keeps it to one like, also when two likes race.
+      await tx.$executeRaw(
+        Prisma.sql`INSERT INTO "quack_like" ("quackId", "userId") VALUES (${quackId}, ${userId})
+          ON CONFLICT DO NOTHING`,
+      );
+      return this.likeStateOf(tx, quackId, userId);
+    });
+  }
+
+  /** Removes this user's like, if there is one. */
+  async unlikeQuack(quackId: string, userId: string): Promise<LikeResult> {
+    return this.prisma.$transaction(async (tx) => {
+      const quack = await this.lockQuack(tx, quackId);
+      if (!quack) return 'not-found';
+      if (quack.deletedAt) return 'deleted';
+      await tx.quackLike.deleteMany({ where: { quackId, userId } });
+      return this.likeStateOf(tx, quackId, userId);
+    });
+  }
+
+  /** The likes of one quack as one user sees them. */
+  private async likeStateOf(
+    tx: Prisma.TransactionClient,
+    quackId: string,
+    userId: string,
+  ): Promise<LikeState> {
+    const likeCount = await tx.quackLike.count({ where: { quackId } });
+    const mine = await tx.quackLike.count({ where: { quackId, userId } });
+    return { likeCount, likedByMe: mine > 0 };
   }
 
   /** Locks one quack row until the transaction ends. */
